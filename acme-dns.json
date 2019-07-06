@@ -1,0 +1,14 @@
+{
+  "config": {
+    "server": "https://acme-auth.example.com",
+    "deploy-wait": 10
+  },
+  "domains": {
+    "example.com": {
+        "username": "",
+        "password": "",
+        "subdomain": ""
+    }
+  }
+}
+

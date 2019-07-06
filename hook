@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+SD="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+deploy_challenge() {
+    local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}"
+
+    echo " - Deploying challenge for $DOMAIN"
+
+    USERNAME=$(cat $SD/acme-dns.json | jq -r '.domains["'$DOMAIN'"].username')
+    PASSWORD=$(cat $SD/acme-dns.json | jq -r '.domains["'$DOMAIN'"].password')
+    SUBDOMAIN=$(cat $SD/acme-dns.json | jq -r '.domains["'$DOMAIN'"].subdomain')
+    SERVER=$(cat $SD/acme-dns.json | jq -r .config.server)
+
+    curl \
+        --header "Content-Type: application/json" \
+        --header "X-Api-User: $USERNAME" \
+        --header "X-Api-Key: $PASSWORD" \
+        --request POST \
+        --data "{\"subdomain\":\"${SUBDOMAIN}\",\"txt\":\"${TOKEN_VALUE}\"}" \
+        $SERVER/update
+    
+}
+
+clean_challenge() {
+    local DOMAIN="${1}" TOKEN_FILENAME="${2}" TOKEN_VALUE="${3}"
+
+    echo " - Cleaning challenge for $DOMAIN"
+    
+
+}
+
+deploy_cert() {
+    local DOMAIN="${1}" KEYFILE="${2}" CERTFILE="${3}" FULLCHAINFILE="${4}" CHAINFILE="${5}" TIMESTAMP="${6}"
+
+    echo " - Deploying cert $DOMAIN"
+
+    cat $SD/acme-dns.json | jq -r '.certs["'$DOMAIN'"].hook | (arrays | .[]),(strings)' | while read command
+    do
+        $command
+    done
+
+}
+
+HANDLER="$1"; shift
+if [[ "${HANDLER}" =~ ^(deploy_challenge|clean_challenge|deploy_cert)$ ]]; then
+    while [ $# -gt 0 ]
+    do
+        "$HANDLER" "$@"
+
+        if [ $HANDLER == "deploy_challenge" ]
+        then
+            sleep $(cat $SD/acme-dns.json | jq -r '.config."deploy-wait"')
+            shift 3
+        elif [ $HANDLER == "clean_challenge" ]
+        then
+            shift 3
+        elif [ $HANDLER == "deploy_cert" ]
+        then
+            shift 6
+        fi
+    done
+fi
